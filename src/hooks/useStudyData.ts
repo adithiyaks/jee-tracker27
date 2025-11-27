@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { db, COLLECTIONS } from '../lib/firebase'
+import { collection, query, where, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore'
 import { StudyDay, StudyStats } from '../types'
-import { format, startOfMonth, endOfMonth, differenceInDays, parseISO, isBefore, isAfter } from 'date-fns'
+import { format, startOfMonth, endOfMonth, differenceInDays, parseISO } from 'date-fns'
 
 export const useStudyData = (userId: string | undefined) => {
   const [studyDays, setStudyDays] = useState<StudyDay[]>([])
@@ -36,18 +37,20 @@ export const useStudyData = (userId: string | undefined) => {
 
     try {
       setLoading(true)
-      const { data, error } = await supabase
-        .from('study_days')
-        .select('*')
-        .eq('user_id', userId)
-        .order('date', { ascending: false })
+      const q = query(
+        collection(db, COLLECTIONS.STUDY_DAYS),
+        where('user_id', '==', userId)
+      )
 
-      if (error) {
-        console.error('Error fetching study days:', error)
-        throw error
-      }
+      const querySnapshot = await getDocs(q)
+      const studyDaysData = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as StudyDay[]
       
-      const studyDaysData = data || []
+      // Sort by date in JavaScript (newest first)
+      studyDaysData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      
       console.log('Fetched study days:', studyDaysData)
       setStudyDays(studyDaysData)
     } catch (error) {
@@ -183,7 +186,11 @@ export const useStudyData = (userId: string | undefined) => {
     try {
       console.log('Updating study day:', { date, data })
       
+      // Generate a unique ID based on userId and date
+      const docId = `${userId}_${date}`
+      
       const updateData = {
+        id: docId,
         user_id: userId,
         date,
         status: data.status || 'productive',
@@ -191,25 +198,16 @@ export const useStudyData = (userId: string | undefined) => {
         study_hours: data.study_hours || 0,
         subjects_studied: data.subjects_studied || [],
         mock_test_score: data.mock_test_score || null,
+        created_at: data.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString()
       }
 
-      const { data: result, error } = await supabase
-        .from('study_days')
-        .upsert(updateData, {
-          onConflict: 'user_id,date'
-        })
-        .select()
+      await setDoc(doc(db, COLLECTIONS.STUDY_DAYS, docId), updateData)
 
-      if (error) {
-        console.error('Supabase error:', error)
-        throw error
-      }
-
-      console.log('Study day updated successfully:', result)
+      console.log('Study day updated successfully')
       
       // IMMEDIATE UI UPDATE - Update local state right away
-      const newStudyDay = result[0] as StudyDay
+      const newStudyDay = updateData as StudyDay
       setStudyDays(currentDays => {
         const existingIndex = currentDays.findIndex(d => d.date === date)
         let updatedDays
@@ -230,7 +228,7 @@ export const useStudyData = (userId: string | undefined) => {
         return updatedDays
       })
       
-      return result
+      return [updateData]
     } catch (error) {
       console.error('Error updating study day:', error)
       throw error
@@ -245,13 +243,8 @@ export const useStudyData = (userId: string | undefined) => {
     if (!userId) return
 
     try {
-      const { error } = await supabase
-        .from('study_days')
-        .delete()
-        .eq('user_id', userId)
-        .eq('date', date)
-
-      if (error) throw error
+      const docId = `${userId}_${date}`
+      await deleteDoc(doc(db, COLLECTIONS.STUDY_DAYS, docId))
       
       // IMMEDIATE UI UPDATE - Remove from local state
       setStudyDays(currentDays => {

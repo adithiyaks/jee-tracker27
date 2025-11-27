@@ -9,10 +9,12 @@ import { StatsCard } from '../components/StatsCard'
 import { MotivationalCard } from '../components/MotivationalCard'
 import { ProgressChart } from '../components/ProgressChart'
 import { formatDate } from '../utils/dateUtils'
+import type { StudyDay } from '../types'
 
 export const DashboardPage: React.FC = () => {
   const { user, signOut } = useAuth()
-  const { studyDays, stats, loading, updateStudyDay, getStudyDay, deleteStudyDay } = useStudyData(user?.id)
+  // Firebase user uses `uid`, not `id`
+  const { studyDays, stats, loading, updateStudyDay, getStudyDay, deleteStudyDay } = useStudyData(user?.uid)
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [viewOnlyStudyDay, setViewOnlyStudyDay] = useState<StudyDay | null>(null)
