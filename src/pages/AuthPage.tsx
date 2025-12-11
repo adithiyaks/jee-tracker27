@@ -39,7 +39,7 @@ export const AuthPage: React.FC = () => {
           <div className="flex items-center justify-center mb-4">
             <BookOpen className="w-12 h-12 text-blue-600" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">KEE Tracker</h1>
+          <h1 className="text-3xl font-bold text-gray-900">JEE Tracker</h1>
           <p className="text-gray-600 mt-2">
             Track your JEE preparation journey
           </p>
